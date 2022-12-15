@@ -1,0 +1,19 @@
+{
+  "_pkglts": {
+    "auto_install": true,
+    "install_front_end": "stdout",
+    "use_prompts": false,
+    "version": 15
+  },
+  "base": {
+    "authors": [
+      [
+        "moi",
+        "moi@email.com"
+      ]
+    ],
+    "namespace": null,
+    "pkgname": "faidherbia",
+    "url": null
+  }
+}
