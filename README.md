@@ -1,6 +1,4 @@
-gdhbjnkml,ñ.
-
-
 # faidherbia
-Blas
-Bla
+This package is a set of tools and utils to estimate biomass etc... from aerial survey imaging
+...
+
