@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(name='faidherbia',
       version='1.0.0',
@@ -7,6 +7,6 @@ setup(name='faidherbia',
       author='Serigne Mansour Diene',
       author_email='serignemansour.diene@univ-thies.sn',
       license='GPL2',
-      packages=['geostats'],
+      packages=find_packages('.'),
       zip_safe=False)
 
