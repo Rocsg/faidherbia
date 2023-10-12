@@ -1,6 +1,29 @@
 import os
 import numpy as np
 
+########## Reminder : dataset structure ###########
+# {datadir}/
+#          |data/
+#          |    |{year}/{date}/
+#          |                  |shapefile/{parcel}/
+#          |                  |                  |faidh/faidh.shp
+#          |                  |                  |limites/{parcel}.shp
+#          |                  |
+#          |                  |raster/{parcel}.tif
+#          |
+#          |result/{year}/{date}/
+#                               |{parcel}/{parcel}_tree_{i}.tif
+#                               |summary.csv  Fields : Name, parcel, index, lat, lon, surface, radius, orientation
+#                                  
+# with
+# {datadir} the path to the main directory for accessing input data and results, result of calling get_main_directory()
+# {year} the year of the aerial imaging, result of calling get_aerial_imaging_dates(), and getting the second argument
+# {date} the date of the aerial imaging, result of calling get_aerial_imaging_dates(), and getting the first argument
+# {parcel} the name of the parcel, result of calling get_parcel_list()
+#
+####################################################
+
+
 def is_mansour():
     #Test based on the expected arborescence of our respective computers
     if os.path.isdir('/home/rfernandez'):
@@ -36,20 +59,7 @@ def get_parcel_list(it_is_just_a_test=False):
     else:
         return np.array(["P01","P02","P04","P05","P08","P09","P10","P11"])
 
-read
-dir = os.chdir('/Users/mansourdiene/Desktop/These/')
-faidh = gpd.read_file('../These/article/paper2/data/2021/2021_08_05/shapefile/P01/faidh/faidh.shp')
-crop = gpd.read_file('../These/article/paper2/data/2021/2021_08_05/shapefile/P01/limites/P01.shp')
 
-for i in range(0, len(regions_polys)):
-    #file = "P04_regions"
-    plot = rio.open('../These/article/paper2/data/2021/2021_08_05/raster/P01.tif')
 
-write
-Ms_img = rio.open('/Users/mansourdiene/Desktop/These/article/paper2/result/2021/'+parc+'regions'+str(i)+'.tif','w',driver='Gtiff',
-    plot = rio.open('../These/article/paper2/data/2021/2021_08_05/raster/'+parc+'.tif')
-    # import vector, calculate the centroid and voronoi diagram
-    faidh = gpd.read_file('../These/article/paper2/data/2021/2021_08_05/shapefile/'+parc+'/faidh/faidh.shp')
-    crop = gpd.read_file('../These/article/paper2/data/2021/2021_08_05/shapefile/'+parc+'/limites/'+parc+'.shp')
 
 
