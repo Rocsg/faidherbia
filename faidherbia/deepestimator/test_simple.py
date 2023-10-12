@@ -5,7 +5,7 @@ from sklearn.metrics import r2_score
 from torchvision import transforms
 from PIL import Image
 
-from faidherbia.deepestimator_simple.archi_regressor import ContractingResUNet
+from faidherbia.deepestimator_simple.OLDarchi_regressor import ContractingResUNet
 from faidherbia.datahandling.Olddataloader_simple_ndvi import CustomDataset
 from torch.utils.data import Dataset, DataLoader
 from faidherbia.datahandling.utils import get_working_directory

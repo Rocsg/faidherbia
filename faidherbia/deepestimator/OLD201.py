@@ -6,7 +6,7 @@ from torchvision import transforms
 from PIL import Image
 
 import torch.nn as nn
-from faidherbia.datahandling.dataloader_simple_aug import CustomDataset
+from faidherbia.datahandling.dataloader import CustomDataset
 from torch.utils.data import Dataset, DataLoader
 from faidherbia.datahandling.utils import get_working_directory
 import numpy as np
@@ -14,15 +14,37 @@ import torchvision.models as models
 
 # Définir la fonction de test
 def test_model():
-    exp="Model_dense_10_CyclicLR_R2target"
+    exp="Model_dense_12_CyclicLR_R2target"
+    grayscale=True
+    use_resnet=True
+    if(use_resnet):
+        densenet = models.resnet50(pretrained=True)
+        # Supprimer la couche de classification par défaut
+        num_features = densenet.fc.in_features
+        densenet.fc = nn.Identity()
+        # Ajouter une couche de régression personnalisée
+        regression_layer = nn.Sequential(
+            nn.Linear(num_features, 128),  # Vous pouvez ajuster la taille de la couche cachée
+            nn.ReLU(),
+            nn.Linear(128, 64),
+            nn.ReLU(),
+            nn.Linear(64, 2)  # Pour une régression univariée. Utilisez 2 pour deux valeurs de régression, etc.
+        )
+        if(grayscale): 
+            densenet.conv1 = nn.Conv2d(1, 64, kernel_size=(3, 3), stride=(2, 2), padding=(3, 3), bias=False)
 
-    # Load pre-trained DenseNet-201 model
-    densenet = models.densenet201(pretrained=True)
-    # Modify the input layer to accept 1-channel grayscale images
-    #densenet.features.conv0 = nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
-    # Modify the output layer for regression (double neuron with linear activation)
-    densenet.classifier = nn.Linear(1920, 2)
-    # Define the loss function (e.g., Mean Squared Error)
+    use_dense=False
+    if(use_dense):
+
+
+        # Load pre-trained DenseNet-201 model
+        densenet = models.densenet201(pretrained=True)
+        # Modify the input layer to accept 1-channel grayscale images
+        #densenet.features.conv0 = nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+        # Modify the output layer for regression (double neuron with linear activation)
+        densenet.classifier = nn.Linear(1920, 2)
+        # Define the loss function (e.g., Mean Squared Error)
+
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     densenet.load_state_dict(torch.load('/home/rfernandez/Bureau/A_Test/Mansour_Sustain_Sahel/Test_deep/Models/'+exp+'_SNAPSHOT.pth'))
     densenet=densenet.to(device)
@@ -73,6 +95,9 @@ def test_model():
     print(abs(np.array(true_y)-np.array(predicted_y))/np.array(true_y))
     # Créer un scatterplot des valeurs prédites par rapport aux valeurs réelles
     plt.figure(figsize=(8, 8))
+    plt.xlim(0, 1)  # Définit les limites de l'axe x
+    plt.ylim(0, 1)  # Définit les limites de l'axe y
+
     plt.scatter(true_y, predicted_y, s=20, alpha=0.5)
     plt.xlabel('Ground Truth Y')
     plt.ylabel('Predicted Y')
@@ -85,6 +110,8 @@ def test_model():
 
     # Créer un scatterplot des valeurs prédites par rapport aux valeurs réelles
     plt.figure(figsize=(8, 8))
+    plt.xlim(0, 1)  # Définit les limites de l'axe x
+    plt.ylim(0, 1)  # Définit les limites de l'axe y
     plt.scatter(true_b, predicted_b, s=20, alpha=0.5)
     plt.xlabel('Ground Truth Y')
     plt.ylabel('Predicted Y')

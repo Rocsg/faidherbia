@@ -14,15 +14,37 @@ import torchvision.models as models
 
 # Définir la fonction de test
 def test_model():
-    exp="Model_dense_09_CyclicLR_R2target"
+    exp="Model_dense_12_CyclicLR_R2target"
+    grayscale=True
+    use_resnet=True
+    if(use_resnet):
+        densenet = models.resnet50(pretrained=True)
+        # Supprimer la couche de classification par défaut
+        num_features = densenet.fc.in_features
+        densenet.fc = nn.Identity()
+        # Ajouter une couche de régression personnalisée
+        regression_layer = nn.Sequential(
+            nn.Linear(num_features, 128),  # Vous pouvez ajuster la taille de la couche cachée
+            nn.ReLU(),
+            nn.Linear(128, 64),
+            nn.ReLU(),
+            nn.Linear(64, 2)  # Pour une régression univariée. Utilisez 2 pour deux valeurs de régression, etc.
+        )
+        if(grayscale): 
+            densenet.conv1 = nn.Conv2d(1, 64, kernel_size=(3, 3), stride=(2, 2), padding=(3, 3), bias=False)
 
-    # Load pre-trained DenseNet-201 model
-    densenet = models.densenet201(pretrained=True)
-    # Modify the input layer to accept 1-channel grayscale images
-    #densenet.features.conv0 = nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
-    # Modify the output layer for regression (double neuron with linear activation)
-    densenet.classifier = nn.Linear(1920, 2)
-    # Define the loss function (e.g., Mean Squared Error)
+    use_dense=False
+    if(use_dense):
+
+
+        # Load pre-trained DenseNet-201 model
+        densenet = models.densenet201(pretrained=True)
+        # Modify the input layer to accept 1-channel grayscale images
+        #densenet.features.conv0 = nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+        # Modify the output layer for regression (double neuron with linear activation)
+        densenet.classifier = nn.Linear(1920, 2)
+        # Define the loss function (e.g., Mean Squared Error)
+
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     densenet.load_state_dict(torch.load('/home/rfernandez/Bureau/A_Test/Mansour_Sustain_Sahel/Test_deep/Models/'+exp+'_SNAPSHOT.pth'))
     densenet=densenet.to(device)
@@ -30,7 +52,7 @@ def test_model():
     # Charger les données de test
     test_data_dir = get_working_directory() + 'Test_dataset'
     test_dataset = CustomDataset(test_data_dir)
-    test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
+    test_loader = DataLoader(test_dataset, batch_size=8, shuffle=False)
     
     predicted_y = []  # Pour stocker les valeurs prédites
     true_y = []       # Pour stocker les valeurs réelles
@@ -45,19 +67,26 @@ def test_model():
             target = target.to(device)
            
     
+
+
             estimated_values = densenet(input_image)
-            batch_len=np.shape(estimated_values)[0]
-            estimated_values=estimated_values.view(batch_len, 2)
-            estimated_yield=estimated_values[:,0]
-            estimated_biomass=estimated_values[:,1]
-            target_yield=target[:,0]
-            target_biomass=target[:,1]
+    
+    
+            target_yield=np.median(target[:,0].detach().cpu().numpy())
+            target_biomass=np.median(target[:,1].detach().cpu().numpy())
+            estimated_yield=np.median(estimated_values[:,0].detach().cpu().numpy())
+            estimated_biomass=np.median(estimated_values[:,1].detach().cpu().numpy())
 
-            true_y.append(target_yield.item())
-            predicted_y.append(estimated_yield.item())
-            true_b.append(target_biomass.item())
-            predicted_b.append(estimated_biomass.item())
+            #add target_yield to the list true_y
+            
 
+
+            true_y.extend([target_yield])    
+            true_b.extend([target_biomass])
+            predicted_y.extend([estimated_yield])
+            predicted_b.extend([estimated_biomass])
+
+    
 
     # Calculer le coefficient de détermination R²
     r_squared_y = r2_score(true_y, predicted_y)
@@ -66,6 +95,9 @@ def test_model():
     print(abs(np.array(true_y)-np.array(predicted_y))/np.array(true_y))
     # Créer un scatterplot des valeurs prédites par rapport aux valeurs réelles
     plt.figure(figsize=(8, 8))
+    plt.xlim(0, 1)  # Définit les limites de l'axe x
+    plt.ylim(0, 1)  # Définit les limites de l'axe y
+
     plt.scatter(true_y, predicted_y, s=20, alpha=0.5)
     plt.xlabel('Ground Truth Y')
     plt.ylabel('Predicted Y')
@@ -78,6 +110,8 @@ def test_model():
 
     # Créer un scatterplot des valeurs prédites par rapport aux valeurs réelles
     plt.figure(figsize=(8, 8))
+    plt.xlim(0, 1)  # Définit les limites de l'axe x
+    plt.ylim(0, 1)  # Définit les limites de l'axe y
     plt.scatter(true_b, predicted_b, s=20, alpha=0.5)
     plt.xlabel('Ground Truth Y')
     plt.ylabel('Predicted Y')
