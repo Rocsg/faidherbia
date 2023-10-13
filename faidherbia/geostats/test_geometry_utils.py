@@ -1,3 +1,5 @@
+import faidherbia
+import faidherbia.geostats
 import faidherbia.geostats.geometry_utils as geometry_utils
 import rasterio
 import matplotlib.pyplot as plt

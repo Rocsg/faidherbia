@@ -1,3 +1,5 @@
+import faidherbia
+import faidherbia.geostats
 import faidherbia.geostats.data_utils as data_utils
 
 print("Testing data_utils.is_mansour...")
