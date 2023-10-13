@@ -127,5 +127,6 @@ if(Testing):
     print("Testing data_utils.create_result_dirs...")
     datadir=get_main_directory()
     years,dates=get_aerial_imaging_dates(it_is_just_a_test=True)
-    create_result_dirs(datadir,years,dates)
+    parcels=get_parcel_list(it_is_just_a_test=True)
+    create_result_dirs(datadir,years,dates,parcels)
     print("Test passed !")
