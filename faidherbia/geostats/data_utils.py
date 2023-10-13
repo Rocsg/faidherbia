@@ -11,19 +11,32 @@ import numpy as np
 #          |                  |
 #          |                  |raster/{parcel}.tif
 #          |
-#          |result/{year}/
-#          |             |{date}/
-#          |             |      |{parcel}/{parcel}_tree_{i}_ms.tif
-#          |             |   ?  |{parcel}/{parcel}_tree_{i}_mask_voronoi.tif
-#          |             |   ?  |{parcel}/{parcel}_tree_{i}_mask_faidherbia.tif
-#          |             |      |{parcel}/{parcel}_tree_{i}_plants.tif
-#          |             |      
-#          |             |yearly/{parcel}/
-#          |                             |{parcel}_tree_{i}_biomass.tif
-#          |                             |{parcel}_tree_{i}_yield.tif        
-#          |                       ?     |summary.csv   (Fields : Name, parcel, index, lat, lon, surface, radius, orientation)
-#          |
-#          |
+#          |result/
+#                 |{year}/
+#          |      |      |{date}/
+#          |      |      |      |{parcel}/{parcel}_tree_{i}_ms.tif
+#          |      |      |   ?  |{parcel}/{parcel}_tree_{i}_mask_voronoi.tif
+#          |      |      |   ?  |{parcel}/{parcel}_tree_{i}_mask_faidherbia.tif
+#          |      |      |      |{parcel}/{parcel}_tree_{i}_plants.tif
+#          |      |      |      
+#          |      |      |yearly/{parcel}/
+#          |      |                      |{parcel}_tree_{i}_biomass.tif
+#          |      |                      |{parcel}_tree_{i}_yield.tif        
+#          |      |                ?     |summary.csv   (Fields : Name, parcel, index, lat, lon, surface, radius, orientation)
+#          |      |
+#          |      |
+#          |      |atlases/
+#          |      |        |{atlas_name}/
+#          |      |        |             |individuals_selected.csv
+#          |      |        |             |ms_mean.tif
+#          |      |        |             |ndvi_mean.tif
+#          |      |        |             |ndvi_sigma.tif
+#          |      |        |             |mean_fcover.tif
+#          |      |        |             |mean_biomass.tif
+#          |      |        |             |sigma_biomass.tif
+#          |      |        |             |mean_yield.tif
+#          |      |        |             |mean_biomass.tif
+#          |      |
 #          |transfer_files/...
 #          |
 # with :
@@ -69,6 +82,8 @@ def get_aerial_imaging_dates(it_is_just_a_test=False):
     return full_dates,years
 
 
+def n_max_faidherbia():
+    return 10000
 
 def get_parcel_list(it_is_just_a_test=False):
     if(it_is_just_a_test):
@@ -76,6 +91,8 @@ def get_parcel_list(it_is_just_a_test=False):
     else:
         return np.array(["P01","P02","P04","P05","P08","P09","P10","P11"])
 
+def get_ndvi_threshold_for_fcover():
+    return 0.2
 
 def create_result_dirs(datadir,years,dates,parcels):
     if not os.path.isdir(datadir+'result/'):
@@ -84,6 +101,9 @@ def create_result_dirs(datadir,years,dates,parcels):
         os.mkdir(datadir+'transfer_files/')
 
     for i in range(years.size):
+        resultdir=datadir+'result/atlases/'
+        if not os.path.isdir(resultdir):
+            os.mkdir(resultdir)
         year=years[i]
         date=dates[i]
         resultdir=datadir+'result/'+year+'/'
