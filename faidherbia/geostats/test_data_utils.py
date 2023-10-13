@@ -2,10 +2,13 @@ import faidherbia
 import faidherbia.geostats
 import faidherbia.geostats.data_utils as data_utils
 
-#To run in shell :
-# python
-# import faidherbia.geostats.test_data_utils
-# faidherbia.geostats.test_data_utils.run_test()
+"""
+-------- To run in shell, copy this code --------
+python
+import faidherbia.geostats.test_data_utils
+faidherbia.geostats.test_data_utils.run_test()
+-------------------------------------------------
+"""
 
 def run_test():
     print("Testing data_utils.is_mansour...")
