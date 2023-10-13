@@ -1,0 +1,55 @@
+#Parcel : -16.4521025  14.494859
+def xnorm(x):
+    return x
+ #   return (x+16.4521025)*100000
+
+def ynorm(y):
+    return y
+    #  return (y-14.494859)*100000
+
+from shapely.geometry import Point
+
+def pointnorm(point):
+    p = Point(xnorm(point.x), ynorm(point.y))
+    return p
+
+
+
+def draw_parcel_polygon_and_centroid(parcel_poly,region_polys,vect_centroids,item):
+    import matplotlib.pyplot as plt
+    import numpy as np
+    #Create a list of future coordinates and values. N lines, 3 columns
+    #The first column is the X coordinate, the second is the Y coordinate, the third is the value
+    data=np.zeros((1000,4))
+    lines=np.zeros((1000,8))
+    incr=0
+    value=0
+    fig, ax = plt.subplots()
+    to_test=[2]
+    import matplotlib.patches
+    ax.add_patch(matplotlib.patches.Polygon(parcel_poly.exterior, color='black', alpha=0.5,closed=True,fill=False))
+
+    #Add coordinates of region_poly to data and trees
+    for i in range(0,len(region_polys)):
+        value=value+(11*i)%7+2
+        si=40
+        coords=list(region_polys[i].exterior.coords)
+        #If i is in to_test
+        if(i in to_test):
+            for coord in coords:
+                data[incr]=[xnorm(coord[0]),ynorm(coord[1]),value,si]
+                incr=incr+1
+        ax.add_patch(matplotlib.patches.Polygon(coords, color='black', alpha=0.5,closed=True,fill=False))
+        coords=list(vect_centroids[i].coords)            
+        si=150
+        for coord in coords:
+            data[incr]=[xnorm(coord[0]),ynorm(coord[1]),value,si]
+            incr=incr+1
+
+    #Plot the data
+    ax.scatter(data[:,0], data[:,1], c=data[:,2],cmap='turbo', s=data[:,3],edgecolor='black')
+    ax.set_xlim([-16.452630, -16.451727])
+    ax.set_ylim([14.494248,14.495331])
+    plt.show()
+
+
