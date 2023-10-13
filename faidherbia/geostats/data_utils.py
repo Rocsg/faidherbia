@@ -36,8 +36,6 @@ import numpy as np
 ####################################################
 
 
-Testing=False
-
 
 def is_mansour():
     #Test based on the expected arborescence of our respective computers
@@ -100,33 +98,3 @@ def create_result_dirs(datadir,years,dates,parcels):
                 os.mkdir(resultdir)
 
 
-
-
-
-
-if(Testing):
-    print("Testing data_utils.is_mansour...")
-    print("is_mansour()="+str(is_mansour()))
-    print("Test passed !")
-
-
-    print("Testing data_utils.get_main_directory...")
-    print("get_main_directory()="+str(get_main_directory()))
-    print("Test passed !")
-
-    print("Testing data_utils.get_aerial_imaging_dates...")
-    print("get_aerial_imaging_dates()="+str(get_aerial_imaging_dates(it_is_just_a_test=True)))
-    print("Test passed !")
-
-
-    print("Testing data_utils.get_parcel_list...")
-    print("get_parcel_list()="+str(get_parcel_list(it_is_just_a_test=True)))
-    print("Test passed !")
-
-
-    print("Testing data_utils.create_result_dirs...")
-    datadir=get_main_directory()
-    years,dates=get_aerial_imaging_dates(it_is_just_a_test=True)
-    parcels=get_parcel_list(it_is_just_a_test=True)
-    create_result_dirs(datadir,years,dates,parcels)
-    print("Test passed !")
