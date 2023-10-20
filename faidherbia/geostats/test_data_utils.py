@@ -8,7 +8,7 @@ python
 import faidherbia.geostats.test_data_utils
 faidherbia.geostats.test_data_utils.run_test()
 -------------------------------------------------
-"""
+""" 
 
 def run_test():
     print("Testing data_utils.is_mansour...")

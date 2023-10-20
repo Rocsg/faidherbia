@@ -87,7 +87,7 @@ def n_max_faidherbia():
 
 def get_parcel_list(it_is_just_a_test=False):
     if(it_is_just_a_test):
-        return np.array(["P01"])
+        return np.array(["P01","P02","P04","P05","P08","P09","P10","P11"])
     else:
         return np.array(["P01","P02","P04","P05","P08","P09","P10","P11"])
 

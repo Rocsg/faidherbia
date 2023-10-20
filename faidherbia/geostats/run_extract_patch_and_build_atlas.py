@@ -8,6 +8,7 @@ import pandas as pd
 import time
 import numpy as np
 import matplotlib.pyplot as plt
+from faidherbia.geostats.polar_viewer import polar_viewer_on_actual_data
 def make_inventory_of_faidherbia(it_is_just_a_test=False):
     """
     Extracts faidherbia inventory data from aerial imaging data and saves it in a CSV file.
@@ -52,6 +53,9 @@ def make_inventory_of_faidherbia(it_is_just_a_test=False):
                 faidherbia_inventory.append(faidh_info) 
     print(faidherbia_inventory)
 
+    #Switch two lines in order to set the line with "Parcel"="P01" and "Index"="3" in first (for viewing)
+    faidherbia_inventory[1], faidherbia_inventory[5] = faidherbia_inventory[5], faidherbia_inventory[1]
+
     #Save the inventory in a CSV file
     np.savetxt(datadir+'result/faidherbia_inventory.csv', faidherbia_inventory, delimiter=',', fmt='%s')
     return pd.read_csv(datadir+'result/faidherbia_inventory.csv')
@@ -83,10 +87,11 @@ def select_faidherbia(df,size='all',date='2021_08_05'):
 
 
 
-def batch_extraction_with_no_save_and_atlas_building(it_is_just_a_test=False,patch_size_in_pixels=4000,size='all',date='2021_08_05'):
+def batch_extraction_with_no_save_and_atlas_building(it_is_just_a_test=False,patch_size_in_pixels=4000,size='all',date='2021_08_05',min_nb_for_stats=7):
     ndvi_threshold_for_fcover=data_utils.get_ndvi_threshold_for_fcover()
     datadir=data_utils.get_main_directory()
     parcels=data_utils.get_parcel_list(it_is_just_a_test)
+    print(parcels)
     dates,years=data_utils.get_aerial_imaging_dates(it_is_just_a_test)
 
     exp_name=date+'_'+size
@@ -102,9 +107,15 @@ def batch_extraction_with_no_save_and_atlas_building(it_is_just_a_test=False,pat
 
 
 
+    weight_plant=np.zeros((patch_size_in_pixels,patch_size_in_pixels))
+    weight_ground=np.zeros((patch_size_in_pixels,patch_size_in_pixels))
     weight=np.zeros((patch_size_in_pixels,patch_size_in_pixels))
+    rgb=np.zeros((3,patch_size_in_pixels,patch_size_in_pixels))
+    rgbplant=np.zeros((3,patch_size_in_pixels,patch_size_in_pixels))
+    rgbground=np.zeros((3,patch_size_in_pixels,patch_size_in_pixels))
     ms=np.zeros((6,patch_size_in_pixels,patch_size_in_pixels))
     ndvi=np.zeros((patch_size_in_pixels,patch_size_in_pixels))
+    ndviplant=np.zeros((patch_size_in_pixels,patch_size_in_pixels))
     fcover=np.zeros((patch_size_in_pixels,patch_size_in_pixels))
     faid_biomass=np.zeros((patch_size_in_pixels,patch_size_in_pixels))
     faid_yield=np.zeros((patch_size_in_pixels,patch_size_in_pixels))
@@ -164,6 +175,8 @@ def batch_extraction_with_no_save_and_atlas_building(it_is_just_a_test=False,pat
                     plt.show()
 
                 #remove the pixels in the global mask from the ms patch
+                #cast faidherbia_ms_patch from uint16 to float64
+                faidherbia_ms_patch=faidherbia_ms_patch.astype(np.float64)
                 for i in range(0,6):
                     msi=faidherbia_ms_patch[i]*faidherbia_glob_mask
                     ms[i]=ms[i]+msi
@@ -171,10 +184,13 @@ def batch_extraction_with_no_save_and_atlas_building(it_is_just_a_test=False,pat
                         print("ms")
                         plt.imshow(ms[i])
                         plt.show()
+                rgb[0]=rgb[0]+faidherbia_ms_patch[2]*faidherbia_glob_mask
+                rgb[1]=rgb[1]+faidherbia_ms_patch[1]*faidherbia_glob_mask
+                rgb[2]=rgb[2]+faidherbia_ms_patch[0]*faidherbia_glob_mask
 
                 #Add the ndvi values in the global mask to the ndvi patch
                 #First compute the ndvi by taking (ms[4]-ms[2])/(ms[4]+ms[2]), but 0 when ms[4]+ms[2]=0
-                temp_ndvi=np.divide(np.subtract(ms[4],ms[2]),np.add(ms[4],ms[2]),out=np.zeros_like(ms[4]),where=np.add(ms[4],ms[2])!=0)*faidherbia_glob_mask
+                temp_ndvi=np.divide(np.subtract(faidherbia_ms_patch[4],faidherbia_ms_patch[2]),np.add(faidherbia_ms_patch[4],faidherbia_ms_patch[2]),out=np.zeros_like(faidherbia_ms_patch[4]),where=np.add(faidherbia_ms_patch[4],faidherbia_ms_patch[2])!=0)*faidherbia_glob_mask
                 ndvi=ndvi+temp_ndvi
                 if(debug):
                     print("ndvi")
@@ -184,13 +200,51 @@ def batch_extraction_with_no_save_and_atlas_building(it_is_just_a_test=False,pat
 
                 #Add the fcover values in the global mask to the fcover patch. Fcover is defined when ndvi>0.2
                 #compute fcover as 1 when ndvi>0.2, 0 else
-                temp_ndvi[temp_ndvi<0.2]=0
-                temp_ndvi[temp_ndvi>=0.2]=1
-                temp_fcover=temp_ndvi*faidherbia_glob_mask
-                fcover=fcover+temp_fcover
+                temp_mask_plant=temp_ndvi.copy()
+                temp_mask_ground=temp_ndvi.copy()
+
+                temp_mask_plant[temp_mask_plant<0.2]=0
+                temp_mask_plant[temp_mask_plant>=0.2]=1
+                temp_mask_plant=temp_mask_plant*faidherbia_glob_mask
+                
+                temp_mask_ground[temp_mask_ground>=0.0]=0
+                temp_mask_ground[temp_mask_ground<0.0]=1                
+                temp_mask_ground=temp_mask_ground*faidherbia_glob_mask
+
+                weight_ground=weight_ground+temp_mask_ground
+                weight_plant=weight_plant+temp_mask_plant
+
+
+                fcover=fcover+temp_mask_plant
                 if(debug):
                     print("fcover")
                     plt.imshow(fcover)
+                    plt.show()
+
+                temp_ndvi_plant=temp_mask_plant*temp_ndvi
+                ndviplant=ndviplant+temp_ndvi_plant
+                if(debug):
+                    print("ndviplant")
+                    plt.imshow(ndviplant)
+                    plt.show()
+
+                rgbplant[0]=rgbplant[0]+faidherbia_ms_patch[2]*temp_mask_plant
+                rgbplant[1]=rgbplant[1]+faidherbia_ms_patch[1]*temp_mask_plant
+                rgbplant[2]=rgbplant[2]+faidherbia_ms_patch[0]*temp_mask_plant
+
+                rgbground[0]=rgbground[0]+faidherbia_ms_patch[2]*temp_mask_ground
+                rgbground[1]=rgbground[1]+faidherbia_ms_patch[1]*temp_mask_ground
+                rgbground[2]=rgbground[2]+faidherbia_ms_patch[0]*temp_mask_ground
+
+                if(debug):
+                    img = np.transpose(rgb, (1, 2, 0))
+                    plt.imshow(img)
+                    plt.show()
+                    img = np.transpose(rgbplant, (1, 2, 0))
+                    plt.imshow(img)
+                    plt.show()
+                    img = np.transpose(rgbground, (1, 2, 0))
+                    plt.imshow(img)
                     plt.show()
 
 
@@ -208,26 +262,69 @@ def batch_extraction_with_no_save_and_atlas_building(it_is_just_a_test=False,pat
 
 
 
-    #Set 1 to every 0 value in weight
+    #Save, then set 1 to every 0 value in weight (for avoiding divinsion by 0)
+    skimage.io.imsave(expdatadir+'/weight.tif', weight)
+    skimage.io.imsave(expdatadir+'/weightplant.tif', weight_plant)
+    skimage.io.imsave(expdatadir+'/weightground.tif', weight_ground)
+
+    #Get a multiplicative mask by selecting pixels which have value upper to 3
+    mask_representative=np.copy(weight)
+    mask_representative[mask_representative<min_nb_for_stats]=0
+    mask_representative[mask_representative>=min_nb_for_stats]=1
+
     weight[weight==0]=1
+    weight_ground[weight_ground==0]=1
+    weight_plant[weight_plant==0]=1
 
     #Compute the mean
     for i in range(0,6):
         ms[i]=ms[i]/weight
+        ms[i]=ms[i]*mask_representative
         
+    for i in range(0,3):
+        rgb[i]=rgb[i]/weight
+        rgbground[i]=rgbground[i]/weight_ground
+        rgbplant[i]=rgbplant[i]/weight_plant
+        rgb[i]=rgb[i]*mask_representative
+        rgbground[i]=rgbground[i]*mask_representative
+        rgbplant[i]=rgbplant[i]*mask_representative
+
     ndvi=ndvi/weight
+    ndviplant=ndviplant/weight_plant
     fcover=fcover/weight
     faid_biomass=faid_biomass/weight
     faid_yield=faid_yield/weight
-    skimage.io.imsave(expdatadir+'/weight.tif', weight)
+
+    ndvi=ndvi*mask_representative
+    ndviplant=ndviplant*mask_representative
+    fcover=fcover*mask_representative
+    faid_biomass=faid_biomass*mask_representative
+    faid_yield=faid_yield*mask_representative
+
     skimage.io.imsave(expdatadir+'/ms.tif', ms)
+    skimage.io.imsave(expdatadir+'/rgb.tif', rgb)
+    skimage.io.imsave(expdatadir+'/rgbplant.tif', rgbplant)
+    skimage.io.imsave(expdatadir+'/rgbground.tif', rgbground)
     skimage.io.imsave(expdatadir+'/ndvi.tif', ndvi)
+    skimage.io.imsave(expdatadir+'/ndviplant.tif', ndviplant)
     skimage.io.imsave(expdatadir+'/fcover.tif', fcover)
     skimage.io.imsave(expdatadir+'/biomass.tif', faid_biomass)
     skimage.io.imsave(expdatadir+'/yield.tif', faid_yield)
+    #Same fcover as a npy matrix
+    np.save(expdatadir+'/ndvi.npy', ndvi)
 
+    np.save(expdatadir+'/rgbgroundr.npy', rgbground[0])
+    np.save(expdatadir+'/rgbgroundg.npy', rgbground[1])
+    np.save(expdatadir+'/rgbgroundb.npy', rgbground[2])
+    np.save(expdatadir+'/ndvi.npy', ndvi)
+    np.save(expdatadir+'/fcover.npy', fcover)
+    np.save(expdatadir+'/biomass.npy', faid_biomass)
+    np.save(expdatadir+'/yield.npy', faid_yield)
 
+    np.save(expdatadir+'/mask_representative.npy',mask_representative)
+    print(expdatadir)
 
+#    polar_viewer_on_actual_data(expdatadir+'/ndvi.npy',mask_representative)
 
 
 

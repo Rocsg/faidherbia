@@ -16,6 +16,7 @@ from PIL import Image
 import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.patches
+import pyproj
 
 import faidherbia.geostats.data_utils as data_utils
 
@@ -43,6 +44,15 @@ def correct_order(regions_polys, vect_centroids):
     return new_list
     
 
+def to_degrees():
+    # Define the source and target coordinate reference systems
+    src_crs = pyproj.CRS("EPSG:32631")  # UTM zone 31N
+    tgt_crs = pyproj.CRS("EPSG:4326")  # WGS84
+
+    # Convert the coordinates to degrees
+    transformer = pyproj.Transformer.from_crs(src_crs, tgt_crs, always_xy=True)
+    vect_centroids_deg = [transformer.transform(x, y) for x, y in vect_centroids]
+
 
 
 
@@ -61,15 +71,20 @@ def get_faidherbia_crown_and_voronoi_regions(parcel, year, date):
     - vect_centroids (list): list of centroids of the faidherbia polygons
     - parcel_shape (Polygon): polygon representing the shape of the parcel
     """
+    tgt_crs = "EPSG:4326"
     datadir = data_utils.get_main_directory()
     faidherbia_shapes = gpd.read_file(datadir + "data/" + year + "/" + date + "/shapefile/" + parcel + "/faidh/faidh.shp")
-    parcel_shape = gpd.read_file(datadir + "data/" + year + "/" + date + "/shapefile/" + parcel + "/limites/" + parcel + ".shp").iloc[0].geometry
+    if faidherbia_shapes.crs != tgt_crs:
+        faidherbia_shapes = faidherbia_shapes.to_crs(tgt_crs)
+    parcel_shape = gpd.read_file(datadir + "data/" + year + "/" + date + "/shapefile/" + parcel + "/limites/" + parcel + ".shp")
+    if parcel_shape.crs != tgt_crs:
+        parcel_shape = parcel_shape.to_crs(tgt_crs)
+    parcel_shape=parcel_shape.iloc[0].geometry
     faidherbia_polygons = faidherbia_shapes['geometry']
     vect_centroids = [faidherbia_polygon.centroid for faidherbia_polygon in faidherbia_polygons]
     regions_polys, region_pts = voronoi_regions_from_coords(vect_centroids, parcel_shape, per_geom=False)
     print("parcshape" + str(parcel_shape.centroid))
     regions_polys = correct_order(regions_polys, vect_centroids)
-
     return regions_polys, region_pts, vect_centroids, parcel_shape,faidherbia_polygons
 
 
@@ -132,6 +147,8 @@ def get_patch_of_polygon_mask_around_tree(src, patch_size_in_pixels, lon_lat_coo
     """
     # Convert the latitude/longitude coordinate of the centroid to pixel coordinates and compute the windows for patching
     row, col = rasterio.transform.rowcol(src.transform, lon_lat_coord.x, lon_lat_coord.y)
+    
+
     window_area = rasterio.windows.Window(col-patch_size_in_pixels/2, row-patch_size_in_pixels/2, patch_size_in_pixels, patch_size_in_pixels)
     #Extract dimX and dimY of src
     dimX=src.shape[0]
@@ -185,7 +202,7 @@ def draw_parcel_polygon_and_centroid(parcel_poly,region_polys,vect_centroids,ite
     incr=0
     value=0
     fig, ax = plt.subplots()
-    to_test=[2]
+    to_test=[]
     ax.add_patch(matplotlib.patches.Polygon(parcel_poly.exterior, color='black', alpha=0.5,closed=True,fill=False))
 
     #Add coordinates of region_poly to data and trees
