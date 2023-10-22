@@ -22,7 +22,7 @@ def get_teta_map(h0,w0,data):
 #rays is a vector of the successive ray in use : [ray_circle_in, ray_step_1,ray_step_2,....,ray_circle_out]
 #tetas is a vector of the successive tetas in use : [teta_0, teta_1, teta_2]
 # compute_polar_heatmap(data,)
-def compute_polar_heatmap(data,h0,w0,rays,tetas,mask_studied_area):
+def compute_polar_heatmap(data,h0,w0,rays,tetas,mask_studied_area,valmin):
     h=np.shape(data)[0]
     w=np.shape(data)[1]
     tetamap=get_teta_map(h0,w0,data)
@@ -45,12 +45,13 @@ def compute_polar_heatmap(data,h0,w0,rays,tetas,mask_studied_area):
     polar_heatmap=polar_heatmap+mask*valcontrol
 
     #Set the value to zero inside the smaller circle, indicating the out-of-study area (where the tree is, for example)
-    mask=radiusmap[:,:]<rays[0]
+#    mask=radiusmap[:,:]<rays[0]
     val_out=0
     result[0,:len(tetas)]=val_out
-    polar_heatmap=polar_heatmap+mask*val_out
+#    polar_heatmap=polar_heatmap+mask*val_out
 
     #Compute the average value for each quadrant in the area under study
+    mask_rep=(mask_studied_area[:,:]>=1)
     for nr in range(n_rays-1):
         r1=rays[nr]
         r2=rays[nr+1]
@@ -66,7 +67,8 @@ def compute_polar_heatmap(data,h0,w0,rays,tetas,mask_studied_area):
             mask_t=(tetamap[:,:]>=t1) & (tetamap[:,:]<t2)
 
             #Combine ray interval and teta interval, and compute the average over these points
-            mask=mask_r*mask_t
+            mask=mask_r*mask_t*mask_rep
+
             val_out=np.nanmean(data[mask])
             result[nr+1,nt]=val_out
             polar_heatmap=polar_heatmap+mask*val_out
@@ -80,6 +82,16 @@ def compute_polar_heatmap(data,h0,w0,rays,tetas,mask_studied_area):
     #Switch the comment next line if you want the rays converge through the center (the faidherbia)
     #line_coords=np.array([[h0,w0, h0+math.sin(tetas[i])*ray,w0+math.cos(tetas[i])*ray ] for i in range(n_tetas)])
     line_coords=np.array([[h0+math.sin(tetas[i])*rayin,w0+math.cos(tetas[i])*rayin, h0+math.sin(tetas[i])*rayout,w0+math.cos(tetas[i])*rayout ] for i in range(n_tetas)])
+
+    #Remove crown
+    crown_mask=radiusmap[:,:]<rays[1]
+    stud=mask_studied_area[:,:]<1
+    crown=crown_mask*stud
+    polar_heatmap[crown]=valmin
+
+
+
+
     return result,polar_heatmap,circle_coords,line_coords
 
 #This function take as input the outputs of the previous ones in order to draw a fancy polar heatmap, comparing original data and average data
@@ -123,7 +135,7 @@ def plot_polar_faidherbia(data,polar_heatmap,circle_coords,line_coords,h0,w0,pat
     ax2.text(w0+bigray+delta/2,h0+delta/4,'East',size=12,c='black')
 
 #    ax1.text(w0-2*delta,h0+delta/4,' Faidherbia crown\n(no crops measured)',size=9,c='black')
-    ax2.text(w0-3*delta,h0+delta/4,'      Faidherbia crown',size=9,c='white')
+    ax2.text(w0-3*delta,h0+delta/4,'               Crown',size=9,c='white')
 
     #Detect min / max
     delta=np.max(polar_heatmap)-np.min(polar_heatmap)
@@ -172,7 +184,7 @@ def polar_viewer_on_actual_data(data,mask_studied_area,path_to_figure_saving=Non
     faidherbia_radius=400/pix_size # Based on data, 4m seems to be the mean radius of the Faidherbia over the pop
     delta=0
     radius_start=faidherbia_radius+delta
-    rays=np.array([1.5*faidherbia_radius,2.5*faidherbia_radius,3.5*faidherbia_radius,4.5*faidherbia_radius])
+    rays=np.array([0.5*faidherbia_radius,1.5*faidherbia_radius,2.5*faidherbia_radius,3.5*faidherbia_radius,4.5*faidherbia_radius])
     print("")
     print("Rays used for binning are : "+str(rays))
     print("")
@@ -185,7 +197,8 @@ def polar_viewer_on_actual_data(data,mask_studied_area,path_to_figure_saving=Non
     print(" >> Time="+str(time.perf_counter()-t0))
     print("")
 
-    results,polar_heatmap,circle_coords,line_coords=compute_polar_heatmap(data,h0,w0,rays,tetas,mask_studied_area=mask_studied_area)
+    results,polar_heatmap,circle_coords,line_coords=compute_polar_heatmap(data,h0,w0,rays,tetas,mask_studied_area=mask_studied_area,valmin=valmin)
+#    polar_heatmap[mask_studied_area[:,:]<1]=valmin
     print(" >> Polar heatmap generated. Time="+str(time.perf_counter()-t0))
     print("")
     print("Average values computed for quadrants are : "+str(results))

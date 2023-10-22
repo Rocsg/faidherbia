@@ -54,7 +54,7 @@ def make_inventory_of_faidherbia(it_is_just_a_test=False):
     print(faidherbia_inventory)
 
     #Switch two lines in order to set the line with "Parcel"="P01" and "Index"="3" in first (for viewing)
-    faidherbia_inventory[1], faidherbia_inventory[5] = faidherbia_inventory[5], faidherbia_inventory[1]
+    #faidherbia_inventory[1], faidherbia_inventory[5] = faidherbia_inventory[5], faidherbia_inventory[1]
 
     #Save the inventory in a CSV file
     np.savetxt(datadir+'result/faidherbia_inventory.csv', faidherbia_inventory, delimiter=',', fmt='%s')
@@ -119,6 +119,15 @@ def batch_extraction_with_no_save_and_atlas_building(it_is_just_a_test=False,pat
     fcover=np.zeros((patch_size_in_pixels,patch_size_in_pixels))
     faid_biomass=np.zeros((patch_size_in_pixels,patch_size_in_pixels))
     faid_yield=np.zeros((patch_size_in_pixels,patch_size_in_pixels))
+
+    #Create a 3d numpy array that will help to stack successive versions of the atlas
+    subfactor=4
+    incr_r=[]
+    incr_g=[]
+    incr_b=[]
+    incr_w=[]
+    incr=0
+
     for indparcel in range(0,len(parcels)):
         parcel=parcels[indparcel]
         print("-----> Processing parcel "+parcel)
@@ -133,11 +142,18 @@ def batch_extraction_with_no_save_and_atlas_building(it_is_just_a_test=False,pat
                 continue
             #Import the raster of the parcel
             print("loading raster", end = '')
-            parcel_raster= rasterio.open("/home/rfernandez/Bureau/A_Test/Mansour_Sustain_Sahel/Atlas/data/"+year+"/"+date+"/raster/"+parcel+".tif")
+            parcel_raster= rasterio.open("/home/rfernandez/Bureau/A_Test/Mansour_Sustain_Sahel/Atlas/data/"+year+"/"+date+"/raster/MS/"+parcel+".tif")
+            biomass_raster= rasterio.open("/home/rfernandez/Bureau/A_Test/Mansour_Sustain_Sahel/Atlas/data/"+year+"/"+date+"/raster/Biomass/"+parcel+"_res.tif")
+            yield_raster= rasterio.open("/home/rfernandez/Bureau/A_Test/Mansour_Sustain_Sahel/Atlas/data/"+year+"/"+date+"/raster/Yield/"+parcel+"_res.tif")
             print("...ok")
 
             # For each faidherbia of this parcel/date
-            for indfaid in range(0,len(region_polys)):
+            indexes=[i for i in range(0,len(region_polys))]
+            print(indexes)
+            if(parcel=="P01"):
+                #switch 0th and 4th element
+                indexes[0], indexes[4] = indexes[4], indexes[0]
+            for indfaid in indexes:
                 print("-----> Processing faidherbia "+str(indfaid))
                 #if this faidherbia is not selected with this date and this parcel, skip
                 if(inventory.loc[(inventory['Parcel'] == parcel) & (inventory['Date'] == date) & (inventory['Index'] == indfaid) & (inventory['Selected'] == 1)].shape[0]==0):
@@ -153,13 +169,13 @@ def batch_extraction_with_no_save_and_atlas_building(it_is_just_a_test=False,pat
                 #Extract the patch of the parcel as a 6 bands image
                 faidherbia_ms_patch=geometry_utils.get_patch_of_raster_around_tree(parcel_raster, patch_size_in_pixels, faidherbia_centroid)
                 faidherbia_ms_patch[faidherbia_ms_patch>65000]=0
-                #Extract the patch of estimated biomass
-#                faidherbia_biomass_patch=geometry_utils.get_patch_of_raster_around_tree(biomass_raster, patch_size_in_pixels, faidherbia_centroid)
+
                 #compute mean of ms_patch along first dimension
-                faidherbia_biomass_patch=np.mean(faidherbia_ms_patch,axis=0)
+                faidherbia_biomass_patch=geometry_utils.get_patch_of_raster_around_tree(biomass_raster, patch_size_in_pixels, faidherbia_centroid)
+                
                 #Extract the patch of estimated yield
-#                faidherbia_yield_patch=geometry_utils.get_patch_of_raster_around_tree(yield_raster, patch_size_in_pixels, faidherbia_centroid)
-                faidherbia_yield_patch=np.std(faidherbia_ms_patch,axis=0)
+                faidherbia_yield_patch=geometry_utils.get_patch_of_raster_around_tree(yield_raster, patch_size_in_pixels, faidherbia_centroid)
+
                 #combine the masks by making a new one selecting only pixels not in crown mask but in voronoi mask
                 faidherbia_voronoi_mask=faidherbia_voronoi_mask.astype(bool)
                 faidherbia_crown_mask=faidherbia_crown_mask.astype(bool)
@@ -187,7 +203,18 @@ def batch_extraction_with_no_save_and_atlas_building(it_is_just_a_test=False,pat
                 rgb[0]=rgb[0]+faidherbia_ms_patch[2]*faidherbia_glob_mask
                 rgb[1]=rgb[1]+faidherbia_ms_patch[1]*faidherbia_glob_mask
                 rgb[2]=rgb[2]+faidherbia_ms_patch[0]*faidherbia_glob_mask
-
+                
+                #resize rgb[0] by subsampling by a factor subfactor
+                r_small=rgb[0][::subfactor,::subfactor]
+                g_small=rgb[1][::subfactor,::subfactor]
+                b_small=rgb[2][::subfactor,::subfactor]
+                w_small=weight[::subfactor,::subfactor]#/(incr+1)                
+                
+                incr_r.append(np.copy(r_small))
+                incr_g.append(np.copy(g_small))
+                incr_b.append(np.copy(b_small))
+                incr_w.append(np.copy(w_small))
+                incr=incr+1
                 #Add the ndvi values in the global mask to the ndvi patch
                 #First compute the ndvi by taking (ms[4]-ms[2])/(ms[4]+ms[2]), but 0 when ms[4]+ms[2]=0
                 temp_ndvi=np.divide(np.subtract(faidherbia_ms_patch[4],faidherbia_ms_patch[2]),np.add(faidherbia_ms_patch[4],faidherbia_ms_patch[2]),out=np.zeros_like(faidherbia_ms_patch[4]),where=np.add(faidherbia_ms_patch[4],faidherbia_ms_patch[2])!=0)*faidherbia_glob_mask
@@ -261,6 +288,22 @@ def batch_extraction_with_no_save_and_atlas_building(it_is_just_a_test=False,pat
                     plt.show()
 
 
+    #divide incr_r by weight, point-wise
+    incr_r=np.array(incr_r)
+    incr_g=np.array(incr_g)
+    incr_b=np.array(incr_b)
+    incr_w=np.array(incr_w)
+    #set to 1 all 0 values of incr_w
+    incr_w[incr_w==0]=1
+
+#    incr_r=np.divide(incr_r,incr_w,out=np.zeros_like(incr_r),where=incr_w!=0)
+#    incr_g=np.divide(incr_g,incr_w,out=np.zeros_like(incr_g),where=incr_w!=0)
+#    incr_b=np.divide(incr_b,incr_w,out=np.zeros_like(incr_b),where=incr_w!=0)
+    #Save them
+    skimage.io.imsave(expdatadir+'/incr_r.tif', incr_r)
+    skimage.io.imsave(expdatadir+'/incr_g.tif', incr_g)
+    skimage.io.imsave(expdatadir+'/incr_b.tif', incr_b)
+    skimage.io.imsave(expdatadir+'/incr_w.tif', incr_w)
 
     #Save, then set 1 to every 0 value in weight (for avoiding divinsion by 0)
     skimage.io.imsave(expdatadir+'/weight.tif', weight)
@@ -390,6 +433,6 @@ def extract_and_save_patches_and_mask(it_is_just_a_test=False,patch_size_in_pixe
                 #Get data for CSV (work in progress)
 
 def run():
-     batch_extraction_with_no_save_and_atlas_building(it_is_just_a_test=True,patch_size_in_pixels=4000,size='all',date='2021_08_05')   
+     batch_extraction_with_no_save_and_atlas_building(it_is_just_a_test=False,patch_size_in_pixels=4000,size='all',date='2021_08_05')   
 
 run()

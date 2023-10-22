@@ -74,8 +74,9 @@ def get_aerial_imaging_dates(it_is_just_a_test=False):
     if(it_is_just_a_test ):
         full_dates=np.array(["2021_08_05"])
     else:
+        full_dates=np.array(["2021_08_05"])
         #To write : full_dates=np.array([ write the dates here ])
-        full_dates=None
+#        full_dates=None
     print(full_dates)
     #Copy the array dates, but with keeping only the years
     years=np.array([date[:4] for date in full_dates])
@@ -87,7 +88,7 @@ def n_max_faidherbia():
 
 def get_parcel_list(it_is_just_a_test=False):
     if(it_is_just_a_test):
-        return np.array(["P01","P02","P04","P05","P08","P09","P10","P11"])
+        return np.array(["P01"])
     else:
         return np.array(["P01","P02","P04","P05","P08","P09","P10","P11"])
 
