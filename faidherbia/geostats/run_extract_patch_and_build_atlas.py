@@ -125,6 +125,9 @@ def batch_extraction_with_no_save_and_atlas_building(it_is_just_a_test=False,pat
     incr_r=[]
     incr_g=[]
     incr_b=[]
+    ind_b=[]
+    ind_r=[]
+    ind_g=[]
     incr_w=[]
     incr=0
 
@@ -168,9 +171,9 @@ def batch_extraction_with_no_save_and_atlas_building(it_is_just_a_test=False,pat
                 faidherbia_voronoi_mask=geometry_utils.get_patch_of_polygon_mask_around_tree(parcel_raster, patch_size_in_pixels, faidherbia_centroid, faidherbia_voronoi)
                 #Extract the patch of the parcel as a 6 bands image
                 faidherbia_ms_patch=geometry_utils.get_patch_of_raster_around_tree(parcel_raster, patch_size_in_pixels, faidherbia_centroid)
-                faidherbia_ms_patch[faidherbia_ms_patch>65000]=0
-
-                #compute mean of ms_patch along first dimension
+                faidherbia_ms_patch[faidherbia_ms_patch>65535]=0 #Todo: remove this line by using the actual polygon instead for masking
+ 
+                #Extract the patch of biomass
                 faidherbia_biomass_patch=geometry_utils.get_patch_of_raster_around_tree(biomass_raster, patch_size_in_pixels, faidherbia_centroid)
                 
                 #Extract the patch of estimated yield
@@ -180,6 +183,11 @@ def batch_extraction_with_no_save_and_atlas_building(it_is_just_a_test=False,pat
                 faidherbia_voronoi_mask=faidherbia_voronoi_mask.astype(bool)
                 faidherbia_crown_mask=faidherbia_crown_mask.astype(bool)
                 faidherbia_glob_mask=np.logical_and(faidherbia_voronoi_mask,np.logical_not(faidherbia_crown_mask))
+
+
+
+
+
 
                 #Add 1 in weight for each pixel in the global mask
                 weight=weight+faidherbia_glob_mask
@@ -194,12 +202,12 @@ def batch_extraction_with_no_save_and_atlas_building(it_is_just_a_test=False,pat
                 #cast faidherbia_ms_patch from uint16 to float64
                 faidherbia_ms_patch=faidherbia_ms_patch.astype(np.float64)
                 for i in range(0,6):
-                    msi=faidherbia_ms_patch[i]*faidherbia_glob_mask
-                    ms[i]=ms[i]+msi
+                    ms[i]=ms[i] + faidherbia_ms_patch[i]*faidherbia_glob_mask
                     if(debug):
-                        print("ms")
-                        plt.imshow(ms[i])
-                        plt.show()
+                        #print("ms")
+                        #plt.imshow(ms[i])
+                        #plt.show()
+                        a=1
                 rgb[0]=rgb[0]+faidherbia_ms_patch[2]*faidherbia_glob_mask
                 rgb[1]=rgb[1]+faidherbia_ms_patch[1]*faidherbia_glob_mask
                 rgb[2]=rgb[2]+faidherbia_ms_patch[0]*faidherbia_glob_mask
@@ -215,7 +223,14 @@ def batch_extraction_with_no_save_and_atlas_building(it_is_just_a_test=False,pat
                 incr_b.append(np.copy(b_small))
                 incr_w.append(np.copy(w_small))
                 incr=incr+1
-                #Add the ndvi values in the global mask to the ndvi patch
+                
+                add_r=faidherbia_ms_patch[2]*faidherbia_glob_mask+(1-faidherbia_glob_mask)*10000
+                add_g=faidherbia_ms_patch[1]*faidherbia_glob_mask+(1-faidherbia_glob_mask)*10000
+                add_b=faidherbia_ms_patch[0]*faidherbia_glob_mask+(1-faidherbia_glob_mask)*10000
+                ind_r.append(np.copy(add_r[::subfactor,::subfactor]))
+                ind_g.append(np.copy(add_g[::subfactor,::subfactor]))
+                ind_b.append(np.copy(add_b[::subfactor,::subfactor]))
+                #Add the ndvi values in the global mask to the ndvi patch   
                 #First compute the ndvi by taking (ms[4]-ms[2])/(ms[4]+ms[2]), but 0 when ms[4]+ms[2]=0
                 temp_ndvi=np.divide(np.subtract(faidherbia_ms_patch[4],faidherbia_ms_patch[2]),np.add(faidherbia_ms_patch[4],faidherbia_ms_patch[2]),out=np.zeros_like(faidherbia_ms_patch[4]),where=np.add(faidherbia_ms_patch[4],faidherbia_ms_patch[2])!=0)*faidherbia_glob_mask
                 ndvi=ndvi+temp_ndvi
@@ -246,6 +261,8 @@ def batch_extraction_with_no_save_and_atlas_building(it_is_just_a_test=False,pat
                 if(debug):
                     print("fcover")
                     plt.imshow(fcover)
+                    #Save fcover as a tif image
+                    skimage.io.imsave('/home/rfernandez/Bureau/cover.tif', fcover)
                     plt.show()
 
                 temp_ndvi_plant=temp_mask_plant*temp_ndvi
@@ -263,17 +280,7 @@ def batch_extraction_with_no_save_and_atlas_building(it_is_just_a_test=False,pat
                 rgbground[1]=rgbground[1]+faidherbia_ms_patch[1]*temp_mask_ground
                 rgbground[2]=rgbground[2]+faidherbia_ms_patch[0]*temp_mask_ground
 
-                if(debug):
-                    img = np.transpose(rgb, (1, 2, 0))
-                    plt.imshow(img)
-                    plt.show()
-                    img = np.transpose(rgbplant, (1, 2, 0))
-                    plt.imshow(img)
-                    plt.show()
-                    img = np.transpose(rgbground, (1, 2, 0))
-                    plt.imshow(img)
-                    plt.show()
-
+ 
 
                 faid_biomass=faid_biomass+faidherbia_biomass_patch*faidherbia_glob_mask
                 if(debug):
@@ -293,8 +300,11 @@ def batch_extraction_with_no_save_and_atlas_building(it_is_just_a_test=False,pat
     incr_g=np.array(incr_g)
     incr_b=np.array(incr_b)
     incr_w=np.array(incr_w)
+    ind_r=np.array(ind_r)
+    ind_g=np.array(ind_g)
+    ind_b=np.array(ind_b)
     #set to 1 all 0 values of incr_w
-    incr_w[incr_w==0]=1
+    incr_w[incr_w==0]=1 # For some reason ! If to some time progressive-weifht is a weird image, the reason why is here
 
 #    incr_r=np.divide(incr_r,incr_w,out=np.zeros_like(incr_r),where=incr_w!=0)
 #    incr_g=np.divide(incr_g,incr_w,out=np.zeros_like(incr_g),where=incr_w!=0)
@@ -304,13 +314,16 @@ def batch_extraction_with_no_save_and_atlas_building(it_is_just_a_test=False,pat
     skimage.io.imsave(expdatadir+'/incr_g.tif', incr_g)
     skimage.io.imsave(expdatadir+'/incr_b.tif', incr_b)
     skimage.io.imsave(expdatadir+'/incr_w.tif', incr_w)
+    skimage.io.imsave(expdatadir+'/ind_r.tif', ind_r)
+    skimage.io.imsave(expdatadir+'/ind_g.tif', ind_g)
+    skimage.io.imsave(expdatadir+'/ind_b.tif', ind_b)
 
-    #Save, then set 1 to every 0 value in weight (for avoiding divinsion by 0)
+    #Save, then set 1 to every 0 value in weight (for avoiding division by 0)
     skimage.io.imsave(expdatadir+'/weight.tif', weight)
     skimage.io.imsave(expdatadir+'/weightplant.tif', weight_plant)
     skimage.io.imsave(expdatadir+'/weightground.tif', weight_ground)
 
-    #Get a multiplicative mask by selecting pixels which have value upper to 3
+    #Get a multiplicative mask by selecting pixels which have value upper to min_nb_for_stats
     mask_representative=np.copy(weight)
     mask_representative[mask_representative<min_nb_for_stats]=0
     mask_representative[mask_representative>=min_nb_for_stats]=1
