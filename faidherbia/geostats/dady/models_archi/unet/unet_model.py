@@ -105,23 +105,33 @@ class ChannelReconstructionUNet(nn.Module):
         
         return output
 
-
-def masked_rmse_loss(predicted: torch.Tensor, target: torch.Tensor, mask_vector: torch.Tensor) -> torch.Tensor:
+def masked_rmse_loss(
+    predicted: torch.Tensor,
+    target: torch.Tensor,
+    mask_vector: torch.Tensor,
+    invalid_mask_vector: torch.Tensor
+) -> torch.Tensor:
     """
-    Calcule la RMSE uniquement sur les canaux masqués (valeur 1 dans le masque)
+    Calcule la RMSE uniquement sur les canaux masqués (mask_vector == 1),
+    en excluant les canaux invalides (invalid_mask_vector == 1).
     
     Args:
-        predicted: tensor (B, 5, 224, 224) - prédictions du modèle
-        target: tensor (B, 5, 224, 224) - images cibles
-        mask_vector: tensor (B, 5) - masque binaire
+        predicted: (B, 5, H, W) - Prédictions du modèle
+        target: (B, 5, H, W) - Vérités terrain
+        mask_vector: (B, 5) - Masques de canaux à reconstruire
+        invalid_mask_vector: (B, 5) - Masques de canaux invalides à ignorer
     """
     batch_size = predicted.shape[0]
     total_loss = torch.tensor(0.0, device=predicted.device)
     valid_samples = 0
     
     for i in range(batch_size):
-        masked_channels = (mask_vector[i] == 1.0).nonzero(as_tuple=True)[0]
+        # Masques de reconstruction ET valides
+        effective_mask = (mask_vector[i] == 1.0) & (invalid_mask_vector[i] == 0.0)
+        masked_channels = effective_mask.nonzero(as_tuple=True)[0]
         
+        print(masked_channels)
+
         if masked_channels.numel() > 0:
             pred_masked = predicted[i, masked_channels, :, :]
             target_masked = target[i, masked_channels, :, :]
@@ -130,9 +140,8 @@ def masked_rmse_loss(predicted: torch.Tensor, target: torch.Tensor, mask_vector:
             
             total_loss += rmse
             valid_samples += 1
-    
+
     if valid_samples > 0:
         return total_loss / valid_samples
     else:
         return torch.tensor(0.0, device=predicted.device)
-    

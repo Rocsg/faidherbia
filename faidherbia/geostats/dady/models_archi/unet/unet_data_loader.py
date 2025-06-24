@@ -4,12 +4,13 @@ import tifffile
 import torch
 from torch.utils.data import Dataset
 import torch.nn.functional as F
+
 class TifDataset(Dataset):
     """Dataset pour charger les fichiers .tif avec contrôle par nom et masquage spécifique."""
-    def __init__(self, data_dir: str, 
+    def __init__(self, data_dir, 
                  transform=None, 
-                 max_andrano: int = 10000, 
-                 p_second_channel: float = 0.5):
+                 max_andrano = 10000, 
+                 p_second_channel = 0.8):
         
         self.data_dir = Path(data_dir)
         all_tifs = list(self.data_dir.glob("*.tif"))
@@ -44,8 +45,19 @@ class TifDataset(Dataset):
             image = self.transform(image)
         
         mask_vector = self.create_mask(tif_path.name)
-        
-        return image, mask_vector
+        invalid_mask = self.create_invalid_mask(tif_path.name)
+
+        return image, mask_vector, invalid_mask
+
+    def create_invalid_mask(self, filename: str) -> torch.Tensor:
+        """Renvoie un masque des canaux *inexistants* (à exclure du calcul de la perte)."""
+        invalid = torch.zeros(5)
+        name = filename.lower()
+
+        if name.startswith("roujola") or name.startswith("godetc1"):
+            invalid[0] = 1.0  # Le canal 0 est totalement absent de l’image
+            
+        return invalid
 
     def create_mask(self, filename: str) -> torch.Tensor:
         """Génère un vecteur de masque selon les règles nommées."""

@@ -1,9 +1,5 @@
-import random
 from pathlib import Path
-import tifffile
-import numpy as np
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
@@ -25,7 +21,7 @@ def train_model(model, train_loader, val_loader, num_epochs=3, lr=1e-3, device='
     optimizer = optim.Adam(model.parameters(), lr=lr)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=10, factor=0.5)
     
-    writer = SummaryWriter(log_dir='../tensorboard_runs/channel_reconstruction/noenv')
+    writer = SummaryWriter(log_dir='../tensorboard_runs/channel_reconstruction/v2')
 
     best_val_loss = float('inf')
 
@@ -33,13 +29,14 @@ def train_model(model, train_loader, val_loader, num_epochs=3, lr=1e-3, device='
         model.train()
         train_loss_accum = 0.0
 
-        for batch_idx, (images, mask_vectors) in enumerate(train_loader):
+        for batch_idx, (images, mask_vectors, invalid_masks) in enumerate(train_loader):
             images = images.to(device)
             mask_vectors = mask_vectors.to(device)
+            invalid_masks = invalid_masks.to(device)
 
             optimizer.zero_grad()
             outputs = model(images, mask_vectors)
-            loss = masked_rmse_loss(outputs, images, mask_vectors)
+            loss = masked_rmse_loss(outputs, images, mask_vectors, invalid_masks)
             loss.backward()
             optimizer.step()
 
@@ -57,11 +54,12 @@ def train_model(model, train_loader, val_loader, num_epochs=3, lr=1e-3, device='
         val_loss_accum = 0.0
 
         with torch.no_grad():
-            for images, mask_vectors in val_loader:
+            for images, mask_vectors, invalid_masks in val_loader:
                 images = images.to(device)
                 mask_vectors = mask_vectors.to(device)
+                invalid_masks = invalid_masks.to(device)
                 outputs = model(images, mask_vectors)
-                loss = masked_rmse_loss(outputs, images, mask_vectors)
+                loss = masked_rmse_loss(outputs, images, mask_vectors, invalid_masks)
                 val_loss_accum += loss.item()
 
         avg_val_loss = val_loss_accum / len(val_loader)
@@ -81,9 +79,10 @@ def train_model(model, train_loader, val_loader, num_epochs=3, lr=1e-3, device='
 
         # Optionally log reconstructed images to TensorBoard
         if len(val_loader) > 0:
-            sample_images, sample_mask_vectors = next(iter(val_loader))
+            sample_images, sample_mask_vectors, sample_invalid_masks  = next(iter(val_loader))
             sample_images = sample_images.to(device)
             sample_mask_vectors = sample_mask_vectors.to(device)
+            sample_invalid_masks = sample_invalid_masks.to(device)
 
             with torch.no_grad():
                 sample_outputs = model(sample_images, sample_mask_vectors)
@@ -104,9 +103,9 @@ from torch.utils.data import random_split, DataLoader
 
 if __name__ == "__main__":
 
-    data_dir = "/lustre/fswork/projects/rech/xfz/uuh33xb/data/224x224_patchs"  # Chemin vers le dossier contenant les fichiers .tif
+    data_dir =  SQUARE_PATCHS_DIR # Chemin vers le dossier contenant les fichiers .tif
     batch_size = 32
-    num_epochs = 40
+    num_epochs = 50
     learning_rate = 1e-3
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
