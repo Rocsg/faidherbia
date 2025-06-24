@@ -129,8 +129,6 @@ def masked_rmse_loss(
         # Masques de reconstruction ET valides
         effective_mask = (mask_vector[i] == 1.0) & (invalid_mask_vector[i] == 0.0)
         masked_channels = effective_mask.nonzero(as_tuple=True)[0]
-        
-        print(masked_channels)
 
         if masked_channels.numel() > 0:
             pred_masked = predicted[i, masked_channels, :, :]

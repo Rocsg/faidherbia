@@ -5,6 +5,7 @@ import numpy as np
 import sys
 from pathlib import Path
 import tifffile
+import torch.nn.functional as F
 
 # Ajouter la racine du projet au path
 dady_root = Path(__file__).parent.parent.parent
@@ -72,9 +73,37 @@ def infer_and_display(img_path, mask_vector, invalid_vector, display=False):
         loss = masked_rmse_loss(output, image_tensor, mask_tensor, invalid_tensor)
         print(f"RMSE Loss: {loss:.4f}")
     
-    return output, loss
+        # === Statistiques par canal ===
+    print("\n--- Statistiques par canal ---")
+    def print_stats(tensor, name):
+        data = tensor.squeeze(0).cpu().numpy()  # (5, H, W)
+        print(f"\n{name}:")
+        for i in range(5):
+            chan = data[i]
+            print(f"  Canal {i}: mean={chan.mean():.4f}, std={chan.std():.4f}, "
+                  f"min={chan.min():.4f}, max={chan.max():.4f}")
+    
+    print_stats(image_tensor, "Image originale")
+    print_stats(output, "Image reconstruite")
 
-img = Path("testdata/224x224_patchs/sahel2021_100.tif")
-mask = np.array([1, 1, 0, 0, 0], dtype=np.float32)  # Masque binaire
+
+    return output, loss, image_tensor
+
+img = Path("testdata/224x224_patchs/andrano10.tif")
+mask = np.array([0, 1, 1, 0, 0], dtype=np.float32)  # Masque binaire
 invalid = np.array([0, 0, 0, 0, 0], dtype=np.float32)  # "invalid" channels = non présents dans l'image d'origine donc pas de calcul de perte
-infer_and_display(img, mask, invalid, display=True)
+output, loss, image_tensor = infer_and_display(img, mask, invalid, display=False)
+
+image_tensor = image_tensor.squeeze(0)
+output = output.squeeze(0)
+
+# Calcul du RMSE par canal reconstruit (selon le masque)
+tmp = 0
+for i in range(len(mask)):
+    if mask[i] == 1:  # Canal reconstruit
+        mse = F.mse_loss(image_tensor[i], output[i], reduction='mean')
+        rmse = torch.sqrt(mse)
+        print(f"Canal {i} - RMSE: {rmse.item():.4f}")
+        tmp += rmse
+print(tmp/np.sum(mask))
+
