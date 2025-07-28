@@ -1,8 +1,5 @@
-import torch.nn as nn
 import torch
-import torch.nn.functional as F
-from typing import Optional
-
+import torch.nn as nn
 
 class DoubleConv(nn.Module):
     """Double convolution block """
@@ -31,7 +28,7 @@ class ChannelReconstructionUNet(nn.Module):
         super().__init__()
         
         # Encoder - entrée: image (5 channels) + masque étendu (5 channels) = 10 channels
-        self.enc1 = DoubleConv(10, 64)
+        self.enc1 = DoubleConv(5, 64)
         self.pool1 = nn.MaxPool2d(2)
         self.enc2 = DoubleConv(64, 128)
         self.pool2 = nn.MaxPool2d(2)
@@ -113,48 +110,3 @@ class ChannelReconstructionUNet(nn.Module):
         output = torch.sigmoid(output)
         
         return output
-
-def masked_rmse_loss(
-    predicted: torch.Tensor,
-    target: torch.Tensor,
-    mask_vector: torch.Tensor,
-    invalid_mask_vector: torch.Tensor
-) -> torch.Tensor:
-    """
-    Calcule la RMSE uniquement sur les canaux masqués (mask_vector == 1),
-    en excluant les canaux invalides (invalid_mask_vector == 1).
-    
-    Args:
-        predicted: (B, 5, H, W) - Prédictions du modèle
-        target: (B, 5, H, W) - Vérités terrain
-        mask_vector: (B, 5) - Masques de canaux à reconstruire
-        invalid_mask_vector: (B, 5) - Masques de canaux invalides à ignorer
-    """
-    batch_size = predicted.shape[0]
-    total_loss = torch.tensor(0.0, device=predicted.device)
-    valid_samples = 0
-    
-    for i in range(batch_size):
-        # Masques de reconstruction ET valides
-        effective_mask = (mask_vector[i] == 1.0) & (invalid_mask_vector[i] == 0.0)
-        masked_channels = effective_mask.nonzero(as_tuple=True)[0]
-        print(mask_vector[i])
-        print("effective_mask:", effective_mask)
-        print("masked_channels:", masked_channels)
-        print(mask_vector[i])
-
-        pred_masked = predicted[i, masked_channels, :, :]
-        target_masked = target[i, masked_channels, :, :]
-        mse = F.mse_loss(pred_masked, target_masked, reduction='mean')
-        print(f"MSE: {mse.item()}")
-        rmse = torch.sqrt(mse)
-        print(f"RMSE: {rmse.item()}")
-        
-        total_loss += rmse
-        valid_samples += 1
-        print(valid_samples)
-    if valid_samples > 0:
-        print("final loss ", total_loss / valid_samples)
-        return total_loss / valid_samples
-    else:
-        return torch.tensor(0.0, device=predicted.device)

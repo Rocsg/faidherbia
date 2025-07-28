@@ -4,10 +4,10 @@ import os
 import random
 
 # === CONFIGURATION ===
-INPUT_FOLDER = r"data\UC1"
-OUTPUT_FOLDER = r"data\UC1"
+INPUT_FOLDER = r"/lustre/fswork/projects/rech/xfz/uuh33xb/data/UC1/Godet_C1"
+OUTPUT_FOLDER = r"/lustre/fswork/projects/rech/xfz/uuh33xb/data/224x224_train"
 PATCH_SIZE = 224
-NB_PATCHES = 3
+NB_PATCHES = 4500
 MAX_TRIES = 1000
 PIXEL_NOIR = 0
 PIXEL_BLANC = 65535
@@ -52,12 +52,17 @@ def save_patch(path, patch, transform, crs):
             dst.write(patch[i], i+1)
 
 # === FILTRER LES FICHIERS FINISSANT PAR 'MS.tif' ===
-tif_files = [f for f in os.listdir(INPUT_FOLDER) if f.endswith("MS.tif")]
-
-for i in range(NB_PATCHES):
+tif_files = [f for f in os.listdir(INPUT_FOLDER) if f.endswith("MS.tif") and "12m" in f]
+i = 0
+while i < NB_PATCHES:
+    
     tif_path = os.path.join(INPUT_FOLDER, random.choice(tif_files))
 
     with rasterio.open(tif_path) as src:
+        if src.count != 4:
+            print(f"Fichier ignoré (canaux={src.count}): {tif_path}")
+            continue
+
         raster = src.read()  # shape: (4, H, W)
         transform = src.transform
         crs = src.crs
@@ -76,7 +81,8 @@ for i in range(NB_PATCHES):
         # Calcul du transform
         window_transform = src.window_transform(((y, y+PATCH_SIZE), (x, x+PATCH_SIZE)))
 
-        save_path = os.path.join(OUTPUT_FOLDER, f"RoujolA_{i}.tif")
+        save_path = os.path.join(OUTPUT_FOLDER, f"godet_{i}.tif")
         save_patch(save_path, patch_scaled, window_transform, crs)
 
         print(f"[{i}] Patch sauvegardé depuis {tif_path}")
+        i += 1

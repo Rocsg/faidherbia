@@ -7,7 +7,7 @@ import sys
 from torch.utils.tensorboard import SummaryWriter
 
 
-dady_root = Path(__file__).parent.parent.parent  # tests/ -> DADY/
+dady_root = Path(__file__).parent.parent  # tests/ -> DADY/
 sys.path.insert(0, str(dady_root))
 
 from utils.config_utils.path_utils import SQUARE_PATCHS_DIR
@@ -101,34 +101,67 @@ def train_model(model, train_loader, val_loader, num_epochs=3, lr=1e-3, device='
     
 from torch.utils.data import random_split, DataLoader
 
-if __name__ == "__main__":
+# Hyperparameters
+data_dir = SQUARE_PATCHS_DIR  # Path to your .tif files
+batch_size = 32
+num_epochs = 50
+learning_rate = 1e-3
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    data_dir =  SQUARE_PATCHS_DIR # Chemin vers le dossier contenant les fichiers .tif
-    batch_size = 3
-    num_epochs = 2
-    learning_rate = 1e-3
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print(f"Hyperparams → Epochs: {num_epochs}, Batch Size: {batch_size}, LR: {learning_rate}")
+print(f"Entraînement sur {device}")
 
-    print(f"Hyperparams → Epochs: {num_epochs}, Batch Size: {batch_size}, LR: {learning_rate}")
-    print(f"Entraînement sur {device}")
+# Load full dataset
+full_dataset = TifDataset(data_dir)
 
-    # Charger l'ensemble complet
-    full_dataset = TifDataset(data_dir)
+# Load trained model
+model = ChannelReconstructionUNet()
+model.load_state_dict(torch.load(r"models_saved\reconstruction_model30.pth", map_location=device))
+model.to(device)
 
-    # Split 80% / 20%
-    val_split = 0.2
-    val_size = int(len(full_dataset) * val_split)
-    train_size = len(full_dataset) - val_size
+model.eval()
 
-    train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
+# Load a single batch from validation set
+val_loader = DataLoader(full_dataset, batch_size=40, shuffle=True)
+images, mask_vectors, invalid_masks = next(iter(val_loader))
+images = images.to(device)
+mask_vectors = mask_vectors.to(device)
+invalid_masks = invalid_masks.to(device)
 
-    # DataLoaders
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+with torch.no_grad():
+    outputs = model(images, mask_vectors)
+    loss = masked_rmse_loss(outputs, images, mask_vectors, invalid_masks)
+print(f"Loss on a single batch using loaded model: {loss.item():.4f}")
 
-    # Créer le modèle
-    model = ChannelReconstructionUNet()
-    print(f"Modèle créé avec {sum(p.numel() for p in model.parameters())} paramètres")
 
-    # Entraîner le modèle
-    train_model(model, train_loader, val_loader, num_epochs, learning_rate, device)
+import matplotlib.pyplot as plt
+
+# Sélection de la dernière image du batch
+idx = -1  # dernière image du batch
+original = images[idx].cpu()
+output = outputs[idx].cpu()
+mask = mask_vectors[idx].cpu()
+
+# Création de l'image masquée (valeurs mises à zéro là où mask == 1)
+masked = original.clone()
+for c in range(5):
+    if mask[c] == 1:
+        masked[c] = 0.0
+
+# Plot
+fig, axs = plt.subplots(5, 3, figsize=(12, 10))
+for i in range(5):
+    axs[i, 0].imshow(original[i], cmap='gray')
+    axs[i, 0].set_title(f"Canal {i} - Original")
+
+    axs[i, 1].imshow(masked[i], cmap='gray')
+    axs[i, 1].set_title(f"Canal {i} - Masqué")
+
+    axs[i, 2].imshow(output[i], cmap='gray')
+    axs[i, 2].set_title(f"Canal {i} - Reconstruit")
+
+    for j in range(3):
+        axs[i, j].axis("off")
+
+plt.tight_layout()
+plt.show()

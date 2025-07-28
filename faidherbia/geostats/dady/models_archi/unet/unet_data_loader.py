@@ -9,8 +9,7 @@ class TifDataset(Dataset):
     """Dataset pour charger les fichiers .tif avec contrôle par nom et masquage spécifique."""
     def __init__(self, data_dir, 
                  transform=None, 
-                 max_andrano = 10000, 
-                 p_second_channel = 0.8):
+                 max_andrano = 10000):
         
         self.data_dir = Path(data_dir)
         all_tifs = list(self.data_dir.glob("*.tif"))
@@ -29,7 +28,6 @@ class TifDataset(Dataset):
                 self.tif_files.append(tif)
         
         self.transform = transform
-        self.p_second_channel = p_second_channel
 
     def __len__(self) -> int:
         return len(self.tif_files)
@@ -54,23 +52,22 @@ class TifDataset(Dataset):
         invalid = torch.zeros(5)
         name = filename.lower()
 
-        if name.startswith("roujola") or name.startswith("godetc1"):
+        if name.startswith("roujola") or name.startswith("godet"):
             invalid[0] = 1.0  # Le canal 0 est totalement absent de l’image
             
         return invalid
 
     def create_mask(self, filename: str) -> torch.Tensor:
-        """Génère un vecteur de masque selon les règles nommées."""
+        """Génère un vecteur de masque"""
         mask = torch.zeros(5)
         name = filename.lower()
 
-        if name.startswith("roujola") or name.startswith("godetc1"):
+        if name.startswith("roujola") or name.startswith("godet"):
             mask[0] = 1.0  # toujours masquer le canal 0
-            # Avec probabilité donnée, masquer un autre canal ≠ 0
-            if random.random() < self.p_second_channel:
-                other_channels = [1, 2, 3, 4]
-                second = random.choice(other_channels)
-                mask[second] = 1.0
+            other_channels = [1, 2, 3, 4]
+            second = random.choice(other_channels)
+            mask[second] = 1.0
+            
         else:
             # Cas général : masquer 1 ou 2 canaux aléatoires
             num_mask = random.choice([1, 2])

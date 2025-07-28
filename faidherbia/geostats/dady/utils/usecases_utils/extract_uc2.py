@@ -4,8 +4,8 @@ import os
 import random
 
 # === CONFIGURATION ===
-INPUT_FOLDER = r"data/UC2/2021_08_05"
-OUTPUT_FOLDER = r"data/UC2/patchs"
+INPUT_FOLDER = r"D:\Mes Donnees\dady_data_1\data\UC2\2021_2emedate"
+OUTPUT_FOLDER = r"testdata\224x224_patchs_sahel_date_2"
 PATCH_SIZE = 224
 NB_PATCHES = 10
 MAX_TRIES = 1000
@@ -49,7 +49,7 @@ os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 # === Filtrer les fichiers avec extension MS.tif ===
 tif_files = [f for f in os.listdir(INPUT_FOLDER) if f.endswith(".tif")]
-
+print(tif_files)
 for i in range(NB_PATCHES):
     while True:
         tif_path = os.path.join(INPUT_FOLDER, random.choice(tif_files))

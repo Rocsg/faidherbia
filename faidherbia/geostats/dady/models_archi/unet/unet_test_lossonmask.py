@@ -7,13 +7,58 @@ import sys
 from torch.utils.tensorboard import SummaryWriter
 
 
-dady_root = Path(__file__).parent.parent.parent  # tests/ -> DADY/
+# Ajouter la racine du projet au path
+dady_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(dady_root))
 
 from utils.config_utils.path_utils import SQUARE_PATCHS_DIR
-from models_archi.unet.unet_model import ChannelReconstructionUNet, masked_rmse_loss
+from models_archi.unet.unet_model import ChannelReconstructionUNet
 from models_archi.unet.unet_data_loader import TifDataset
 
+
+def masked_rmse_loss(
+    predicted: torch.Tensor,
+    target: torch.Tensor,
+    mask_vector: torch.Tensor,
+    invalid_mask_vector: torch.Tensor
+) -> torch.Tensor:
+
+    """
+    Calcule la RMSE en excluant les canaux invalides (invalid_mask_vector == 1).
+
+    Args:
+        predicted: (B, C, H, W)
+        target: (B, C, H, W)
+        invalid_mask_vector: (B, C) - 1 = invalide (à ignorer), 0 = valide
+    Returns:
+        RMSE moyen sur les canaux valides
+    """
+    batch_size = predicted.shape[0]
+    total_loss = torch.tensor(0.0, device=predicted.device)
+    nb_valid_channels = 0
+
+    for i in range(batch_size):
+        # Canaux valides uniquement
+        valid_channels = (invalid_mask_vector[i] == 0)
+        print("valid_channels:", valid_channels)
+        selected_channels = valid_channels.nonzero(as_tuple=True)[0]
+        print("Selected channels:", selected_channels)
+
+        pred_valid = predicted[i, selected_channels, :, :]
+        target_valid = target[i, selected_channels, :, :]
+
+        mse = F.mse_loss(pred_valid, target_valid, reduction='mean')
+        rmse = torch.sqrt(mse)
+        print(f"RMSE: {rmse.item()}")
+        total_loss += rmse
+        nb_valid_channels += selected_channels.numel()
+
+        print(f"Total valid channels: {nb_valid_channels}")
+    if nb_valid_channels == 0:
+        return torch.tensor(0.0, device=predicted.device)
+    
+    print("Final loss:", total_loss / batch_size)
+    return total_loss / batch_size
 
 
 def train_model(model, train_loader, val_loader, num_epochs=3, lr=1e-3, device='cuda'):
@@ -21,7 +66,7 @@ def train_model(model, train_loader, val_loader, num_epochs=3, lr=1e-3, device='
     optimizer = optim.Adam(model.parameters(), lr=lr)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=10, factor=0.5)
     
-    writer = SummaryWriter(log_dir='../tensorboard_runs/channel_reconstruction/v2')
+    # writer = SummaryWriter(log_dir=r'/lustre/fswork/projects/rech/xfz/uuh33xb/tensorboard_runs/channel_reconstruction/original_archi_dataset2_corrected_loss')
 
     best_val_loss = float('inf')
 
@@ -48,7 +93,7 @@ def train_model(model, train_loader, val_loader, num_epochs=3, lr=1e-3, device='
                 writer.add_scalar('Loss/train', loss.item(), global_step)
         
         avg_train_loss = train_loss_accum / len(train_loader)
-
+        print("avg train loss :", avg_train_loss)
         # Validation phase
         model.eval()
         val_loss_accum = 0.0
@@ -104,8 +149,8 @@ from torch.utils.data import random_split, DataLoader
 if __name__ == "__main__":
 
     data_dir =  SQUARE_PATCHS_DIR # Chemin vers le dossier contenant les fichiers .tif
-    batch_size = 3
-    num_epochs = 2
+    batch_size = 32
+    num_epochs = 100
     learning_rate = 1e-3
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -113,14 +158,9 @@ if __name__ == "__main__":
     print(f"Entraînement sur {device}")
 
     # Charger l'ensemble complet
-    full_dataset = TifDataset(data_dir)
-
-    # Split 80% / 20%
-    val_split = 0.2
-    val_size = int(len(full_dataset) * val_split)
-    train_size = len(full_dataset) - val_size
-
-    train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
+    # full_dataset = TifDataset(data_dir)
+    train_dataset = TifDataset(SQUARE_PATCHS_DIR) 
+    val_dataset = TifDataset(SQUARE_PATCHS_DIR) 
 
     # DataLoaders
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
