@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 import torch.optim as optim
 import tifffile
+import torch.nn.functional as F
 
 # Ajouter la racine du projet au path
 dady_root = Path(__file__).parent.parent.parent
@@ -90,7 +91,21 @@ def infer_and_display(img_path, mask_vector, invalid_vector, display=False):
         loss = masked_rmse_loss(output, image_tensor, invalid_tensor)
         print(f"RMSE Loss: {loss:.4f}")
     
-    return output, loss, image_tensor
+        # === Statistiques par canal ===
+    print("\n--- Statistiques par canal ---")
+    def print_stats(tensor, name):
+        data = tensor.squeeze(0).cpu().numpy()  # (5, H, W)
+        print(f"\n{name}:")
+        for i in range(5):
+            chan = data[i]
+            print(f"  Canal {i}: mean={chan.mean():.4f}, std={chan.std():.4f}, "
+                  f"min={chan.min():.4f}, max={chan.max():.4f}")
+    
+    print_stats(image_tensor, "Image originale")
+    print_stats(output, "Image reconstruite")
+
+
+    return output, loss, image_tensor, image_tensor
 
 img = Path(r"testdata\224x224_patchs\godetc1_1005.tif")
 mask = np.array([1, 0, 0, 0, 1], dtype=np.float32)  # Masque binaire
